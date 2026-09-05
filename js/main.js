@@ -15,6 +15,8 @@ import { NetClient } from './net.js';
 import { RemotePlayers } from './remote.js';
 import { CraftPanel } from './crafting.js';
 import { getZoneAt } from './zones.js';
+import { spawnZoneProps } from './zoneprops.js';
+import { Campfires } from './campfires.js';
 
 const params = new URLSearchParams(location.search);
 const IS_MOBILE = params.get('mobile') === '1' ||
@@ -67,6 +69,8 @@ let remotePlayers = null;
 let netOnline = false;
 let craftPanel = null;
 let currentZoneId = null;
+let campfires = null;
+let lastAttackToast = 0;
 
 // Небесный купол: фото-панорама (Skyrim-style) днём, растворяется к ночи
 // (текстуры ≤1024px для мобильных, 2048 для десктопа)
@@ -78,6 +82,23 @@ let currentZoneId = null;
 }
 
 // ── Сборка мира ──
+// Плотность леса по зонам: локации отличаются не только тегом, но и рельефом растительности.
+// (зоны из zones.js; множитель 1.0 = базовая плотность вне зон)
+const ZONE_DENSITY = {
+  clearing: 0.22,  // поляна — открытое место
+  thicket: 1.6,    // чаща — густой лес
+  creek: 0.85,     // ручей — обычный лес
+  swamp: 0.3,      // топь — редкие чахлые сосны
+  clearcut: 0.08,  // вырубка — почти голо (пни от zoneprops)
+  hill: 0.35,      // холмы — разреженно
+  hollow: 0.3,     // ложбина — разреженно
+};
+function zoneDensity(x, z) {
+  const zone = getZoneAt(x, z);
+  if (!zone) return 1;
+  return ZONE_DENSITY[zone.id] ?? 1;
+}
+
 async function build() {
   loadingText.textContent = 'Загрузка леса…';
 
@@ -111,8 +132,13 @@ async function build() {
 
   // density — для тестов/слабых устройств (по умолчанию 0.055)
   const density = Math.max(0.002, parseFloat(params.get('density') || '0.055'));
-  forest.generate(density);
+  forest.generate(density, zoneDensity);
   loadingText.textContent = `Посажено сосен: ${forest.count}…`;
+
+  // «Контент» локаций: пни, валуны, кочки, брёвна — по зонам (zoneprops.js)
+  spawnZoneProps(scene);
+  // Костры: процедурные 3D, ставятся игроком (клавиша G)
+  campfires = new Campfires(scene);
 
   player = new Player(camera, forest);
   player.teleport(0, 0, 0);
@@ -247,8 +273,49 @@ async function build() {
   }
 
   // отладочный хук для автотестов
-  window.__game = { player, forest, scene, camera, IS_MOBILE, inventory, pickups, handItem, net, remotePlayers };
+  window.__game = { player, forest, scene, camera, IS_MOBILE, inventory, pickups, handItem, net, remotePlayers, campfires, attack, placeCampfire };
   window.__pauseRender = () => { started = false; cancelAnimationFrame(rafId); };
+}
+
+// ── Атака (ЛКМ): замах, рубка деревьев топором, укол копьём ──
+function attack() {
+  if (!started || inventoryOpen || !player || !forest) return;
+  const held = inventory && inventory.activeSlot;
+  const heldId = held ? held.id : null;
+  if (heldId !== 'axe' && heldId !== 'spear') {
+    const now = performance.now();
+    if (now - lastAttackToast > 3000) {
+      lastAttackToast = now;
+      showToast('Возьми топор или копьё в руку (клавиши 1-9) и кликай ЛКМ');
+    }
+    return;
+  }
+  if (handItem) handItem.swing();
+  if (net) net.sendAction(2); // BIT2 — атака (сервер учтёт в логах/валидации)
+  if (heldId === 'axe') {
+    const fwdX = -Math.sin(player.yaw), fwdZ = -Math.cos(player.yaw);
+    const hit = forest.chopNear(player.pos.x, player.pos.z, fwdX, fwdZ, 3.2);
+    if (hit) {
+      inventory.add('wood', 2);
+      showToast('Дерево срублено! +2 бревна');
+    }
+  }
+  // копьё: целей (зомби/дичь) пока нет — только замах
+}
+
+// ── Костёр (G): поставить костровой набор перед собой ──
+function placeCampfire() {
+  if (!started || inventoryOpen || !player || !campfires || !inventory) return;
+  if (inventory.countOf('campfire_kit') < 1) {
+    showToast('Нужен костровой набор — крафт в инвентаре (E): 4 палки + 4 камня + 2 волокна');
+    return;
+  }
+  inventory.remove('campfire_kit', 1);
+  const dist = 2.4;
+  const x = player.pos.x - Math.sin(player.yaw) * dist;
+  const z = player.pos.z - Math.cos(player.yaw) * dist;
+  campfires.place(x, z);
+  showToast('Костёр разведён!');
 }
 
 // ── Управление стартом/паузой ──
@@ -276,7 +343,7 @@ const input = IS_MOBILE
         pauseScreen.style.display = 'none';
         crosshair.style.display = 'block';
       }
-    }});
+    }, onAttack: attack });
 
 startBtn.addEventListener('click', startGame);
 resumeBtn.addEventListener('click', () => {
@@ -366,6 +433,7 @@ function loop() {
       }
     }
     if (handItem) handItem.update(dt, started && (player.keys.fwd !== 0 || player.keys.strafe !== 0));
+    if (campfires) campfires.update(dt); // пламя костров
     forest.update(player.pos);
     dayNight.update(dt, player.pos);
     if (remotePlayers) remotePlayers.update(dt); // интерполяция чужих игроков
@@ -412,6 +480,11 @@ window.addEventListener('keydown', (e) => {
     openInventory();
   } else if (e.key === 'Escape' && inventoryOpen) {
     closeInventory();
+  }
+  // G — поставить костёр (и русская «п»)
+  if ((e.key === 'g' || e.key === 'G' || e.key === 'п' || e.key === 'П') &&
+      campfires && started && !inventoryOpen) {
+    placeCampfire();
   }
   // 1-9 — выбор слота хотбара
   if (inventory && /^[1-9]$/.test(e.key)) {

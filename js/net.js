@@ -31,6 +31,7 @@ export class NetClient {
     this.retries = 0;
     this._inputAcc = 0;
     this._pendingInput = null; // {dx,dz,yaw,flags}
+    this._actionBit = 0;       // разовые действия (BIT2 атака) — уходят в следующем пакете
   }
 
   connect() {
@@ -115,7 +116,8 @@ export class NetClient {
     dv.setFloat32(1, dx, true);
     dv.setFloat32(5, dz, true);
     dv.setInt16(9, Math.round(yaw * (32767 / Math.PI)), true);
-    b[11] = flags;
+    b[11] = flags | this._actionBit; // разовые действия приклеиваем к обычному вводу
+    this._actionBit = 0;
     this.ws.send(b);
   }
 
@@ -124,6 +126,12 @@ export class NetClient {
     const len = Math.hypot(dx, dz);
     if (len > 1) { dx /= len; dz /= len; }
     this._pendingInput = { dx, dz, yaw, flags };
+  }
+
+  // Разовое действие (бит в битмаске): отправляется в ближайшем пакете ввода.
+  // BIT2 = атака, BIT3 = сбор, BIT4 = use.
+  sendAction(bit) {
+    if (this.connected) this._actionBit |= bit;
   }
 
   disconnect() {

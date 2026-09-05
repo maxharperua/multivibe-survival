@@ -94,6 +94,8 @@ export class Forest {
       // матрицы
       for (let i = 0; i < n; i++) {
         const t = group.trees[i];
+        t.ims = group.ims; // ссылка на InstancedMesh'ы — для срубания (chopNear)
+        t.idx = i;
         this._dummy.position.set(t.x, 0, t.z);
         this._dummy.rotation.set(t.tiltX, t.rotY, t.tiltZ);
         this._dummy.scale.setScalar(t.s);
@@ -107,8 +109,9 @@ export class Forest {
     }
   }
 
-  // Сгенерировать лес: jittered-сетка с поляной в центре
-  generate(countPerArea) {
+  // Сгенерировать лес: jittered-сетка с поляной в центре.
+  // densityFn(x,z) — множитель плотности по координатам (зоны локаций).
+  generate(countPerArea, densityFn) {
     const rTrunk = this._trunkRadius();
     const step = Math.sqrt(1 / countPerArea);
     const half = Math.ceil(WORLD_RADIUS / step);
@@ -120,6 +123,11 @@ export class Forest {
         if (dist > WORLD_RADIUS) continue;      // за краем
         if (dist < CLEAR_RADIUS) continue;       // поляна
         if (dist > WORLD_RADIUS * 0.75 && Math.random() < 0.35) continue;
+        if (densityFn) {                        // зонная плотность (локации)
+          const d = densityFn(x, z);
+          if (d <= 0) continue;
+          if (Math.random() > d) continue;
+        }
         if (Math.random() < 0.12) continue;      // лёгкая неравномерность
 
         // выбор модели и масштаб: разные модели дают ярусы высот
@@ -134,8 +142,9 @@ export class Forest {
         const cx = Math.floor(x / CHUNK_SIZE);
         const cz = Math.floor(z / CHUNK_SIZE);
         const ch = this._chunk(cx, cz);
-        ch.groups[mi].trees.push({ x, z, s, rotY, tiltX, tiltZ });
-        this.trees.push({ x, z, r: rTrunk * s });
+        const tree = { x, z, s, rotY, tiltX, tiltZ };
+        ch.groups[mi].trees.push(tree);
+        this.trees.push({ x, z, r: rTrunk * s, ref: tree });
       }
     }
 
@@ -183,6 +192,7 @@ export class Forest {
         const arr = grid.get(gx + ':' + gz);
         if (!arr) continue;
         for (const t of arr) {
+          if (t.dead) continue; // срублено топором — коллизии нет
           const dx = pos.x - t.x, dz = pos.z - t.z;
           const minD = t.r + playerRadius;
           const d2 = dx * dx + dz * dz;
@@ -206,4 +216,40 @@ export class Forest {
   }
 
   get count() { return this._count; }
+
+  // ── Срубание деревьев (топор) ──
+  // Луч из (x,z) в направлении (dirX,dirZ): ближайшее дерево в конусе ~38°,
+  // не дальше maxDist. Срубает (скрывает инстанс, убирает коллизию) и
+  // возвращает {x,z} дерева или null.
+  chopNear(x, z, dirX, dirZ, maxDist) {
+    const len = Math.hypot(dirX, dirZ) || 1;
+    const dxn = dirX / len, dzn = dirZ / len;
+    let best = null, bestD = maxDist + 0.8;
+    for (const t of this.trees) {
+      if (t.dead) continue;
+      const vx = t.x - x, vz = t.z - z;
+      const d = Math.hypot(vx, vz);
+      if (d > maxDist + 0.8 || d < 0.001) continue;
+      const dot = (vx * dxn + vz * dzn) / d; // косинус угла до направления взгляда
+      if (dot < 0.78) continue;
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    if (!best) return null;
+    this._hideTree(best);
+    return { x: best.x, z: best.z };
+  }
+
+  _hideTree(t) {
+    t.dead = true;
+    const ref = t.ref;
+    if (!ref || !ref.ims) return;
+    this._dummy.position.set(t.x, 0, t.z);
+    this._dummy.rotation.set(0, 0, 0);
+    this._dummy.scale.setScalar(0.001); // инстанс «пропадает»
+    this._dummy.updateMatrix();
+    for (const im of ref.ims) {
+      im.setMatrixAt(ref.idx, this._dummy.matrix);
+      im.instanceMatrix.needsUpdate = true;
+    }
+  }
 }

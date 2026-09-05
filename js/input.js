@@ -2,11 +2,12 @@
 import { EYE_HEIGHT } from './player.js';
 
 export class InputManager {
-  constructor({ player, isMobile, canvas, onLockChange }) {
+  constructor({ player, isMobile, canvas, onLockChange, onAttack }) {
     this.player = player;
     this.isMobile = isMobile;
     this.canvas = canvas;
     this.onLockChange = onLockChange || (() => {});
+    this.onAttack = onAttack || null;
     this.state = { fwd: 0, strafe: 0, run: false, locked: false };
 
     this._keys = new Set();
@@ -36,6 +37,10 @@ export class InputManager {
     });
     document.addEventListener('mousemove', (e) => {
       if (this.state.locked) this.player.rotate(e.movementX, e.movementY);
+    });
+    // ЛКМ — атака (топор/копьё), только при захвате мыши
+    this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && this.state.locked && this.onAttack) this.onAttack();
     });
   }
 

@@ -2,6 +2,8 @@
 // Иконки — инлайн-SVG (без эмодзи), стаки по 64.
 import * as THREE from 'three';
 import { ITEMS, makeItemMesh } from './items.js';
+
+const SWING_TIME = 0.3; // длительность замаха при атаке, сек
 import { HOTBAR_SIZE, INVENTORY_SIZE } from './inventory.js';
 
 // ── SVG-иконки предметов (data URI) ──
@@ -191,6 +193,7 @@ export class HandItem {
     this.mesh = null;
     this.currentId = null;
     this._t = 0;
+    this._swingT = 0;
   }
 
   setItem(id) {
@@ -214,8 +217,25 @@ export class HandItem {
   // лёгкое покачивание при движении
   update(dt, moving) {
     this._t += dt;
+    // замах (атака): резкий рывок вниз-вперёд и возврат
+    if (this._swingT > 0) {
+      this._swingT -= dt;
+      const k = Math.max(0, this._swingT / SWING_TIME); // 1..0
+      const s = Math.sin((1 - k) * Math.PI);            // 0..1..0
+      this.group.rotation.x = -0.15 - s * 1.15;
+      this.group.position.z = -0.62 + s * 0.38;
+      this.group.position.y = -0.4 - s * 0.08;
+      return;
+    }
     const bob = moving ? Math.sin(this._t * 8) * 0.02 : 0;
+    this.group.rotation.x = -0.15;
+    this.group.position.z = -0.62;
     this.group.position.y = -0.4 + bob;
+  }
+
+  // Анимация удара — вызывает атака (топор/копьё)
+  swing() {
+    this._swingT = SWING_TIME;
   }
 }
 
