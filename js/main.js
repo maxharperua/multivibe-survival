@@ -108,6 +108,31 @@ async function build() {
   player = new Player(camera, forest);
   player.teleport(0, 0, 0);
 
+  // URL-Room (GTM): #squad=имя — спавн в общей точке лагеря + ссылка для друзей.
+  // В мультиплеере сервер будет читать squad при коннекте и спавнить команду вместе.
+  const roomMatch = location.hash.match(/squad=([\w-]{1,24})/);
+  const room = roomMatch ? roomMatch[1] : null;
+  const ROOM_SPAWN = { x: 0, z: 0 }; // лагерь (сейчас == спавн; в online — точка сбора комнаты)
+  if (room) {
+    player.teleport(ROOM_SPAWN.x, ROOM_SPAWN.z, 0);
+    const roomBar = document.getElementById('roomBar');
+    const roomNameEl = document.getElementById('roomName');
+    const shareBtn = document.getElementById('roomShareBtn');
+    if (roomBar && roomNameEl && shareBtn) {
+      roomNameEl.textContent = 'Комната: ' + room;
+      roomBar.classList.remove('hidden');
+      const shareUrl = location.origin + location.pathname + '#squad=' + encodeURIComponent(room);
+      shareBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          showToast('Ссылка скопирована — кидай друзьям!');
+        } catch {
+          prompt('Скопируй ссылку комнаты:', shareUrl);
+        }
+      });
+    }
+  }
+
   // Инвентарь и собираемые предметы
   inventory = new Inventory();
   // GLB-модели камня/ветки (CC0) — до разброса пикапов
