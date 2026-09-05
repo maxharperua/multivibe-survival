@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body>
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './lib/jsm/loaders/GLTFLoader.js';
+const loader = new GLTFLoader();
+loader.load('./assets/models/pine_single.glb', (gltf) => {
+  gltf.scene.traverse(o => {
+    if (o.isMesh) {
+      console.log('MESH', o.name, '| geo:', o.geometry.getAttribute('position').count, 'verts | mat:', o.material.type, '| map:', o.material.map ? 'yes' : 'no', '| vertexColors:', o.material.vertexColors);
+      const box = new THREE.Box3().setFromObject(o);
+      console.log('  box min/max:', box.min.toArray().map(v=>v.toFixed(2)).join(','), '/', box.max.toArray().map(v=>v.toFixed(2)).join(','));
+      const g = o.geometry;
+      console.log('  attributes:', Object.keys(g.attributes).join(','));
+    }
+  });
+  const b = new THREE.Box3().setFromObject(gltf.scene);
+  console.log('TOTAL box size:', b.getSize(new THREE.Vector3()).toArray().map(v=>v.toFixed(2)).join(' x '));
+  gltf.scene.traverse(o=>{ if(o.isMesh) o.material = o.material; });
+}, undefined, e=>console.error('ERR', e));
+</script></body></html>

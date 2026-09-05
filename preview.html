@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin:0; background:#333; display:flex; height:100vh; }
+  .panel { flex:1; position:relative; }
+  .panel h3 { position:absolute; top:8px; left:12px; color:#fff; font:16px sans-serif; z-index:5; background:rgba(0,0,0,.5); padding:4px 10px; border-radius:6px; }
+  .panel canvas { display:block; }
+</style>
+</head>
+<body>
+<div class="panel" id="p1"><h3>pines_group.glb (Quaternius CC0)</h3></div>
+<div class="panel" id="p2"><h3>pine_single.glb (Quaternius CC0)</h3></div>
+
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.min.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './lib/jsm/loaders/GLTFLoader.js';
+
+const loader = new GLTFLoader();
+
+function makeViewer(container, glbUrl, scale) {
+  const w = container.clientWidth, h = container.clientHeight;
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(w, h);
+  container.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fc4dc);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.0));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+  sun.position.set(5, 8, 3);
+  scene.add(sun);
+  // пол-сетка для масштаба
+  const grid = new THREE.GridHelper(6, 12, 0x666666, 0xaaaaaa);
+  scene.add(grid);
+  const cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+  cam.position.set(4, 2.5, 4);
+  cam.lookAt(0, 1.5, 0);
+  loader.load(glbUrl, (gltf) => {
+    const m = gltf.scene;
+    m.scale.setScalar(scale);
+    m.position.y = 0.01;
+    // центрируем по XZ
+    const box = new THREE.Box3().setFromObject(m);
+    const cx = (box.min.x + box.max.x) / 2;
+    const cz = (box.min.z + box.max.z) / 2;
+    m.position.x -= cx; m.position.z -= cz;
+    scene.add(m);
+    render();
+  }, undefined, (e) => console.error(glbUrl, e));
+  function render(){ renderer.render(scene, cam); requestAnimationFrame(render); }
+}
+
+makeViewer(document.getElementById('p1'), './assets/models/pines_group.glb', 1);
+makeViewer(document.getElementById('p2'), './assets/models/pine_single.glb', 1);
+</script>
+</body>
+</html>

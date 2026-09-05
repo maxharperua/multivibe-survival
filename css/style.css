@@ -1,0 +1,225 @@
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+#app { position: fixed; inset: 0; }
+#game { display: block; width: 100%; height: 100%; touch-action: none; }
+
+/* ── Прицел ── */
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
+  margin: -3px 0 0 -3px; border-radius: 50%;
+  background: rgba(255,255,255,.75);
+  box-shadow: 0 0 3px rgba(0,0,0,.8);
+  pointer-events: none; display: none;
+}
+#crosshair::before, #crosshair::after {
+  content: ""; position: absolute; background: rgba(255,255,255,.55);
+  box-shadow: 0 0 2px rgba(0,0,0,.8);
+}
+#crosshair::before { left: 2px; top: -4px; width: 2px; height: 14px; }
+#crosshair::after { top: 2px; left: -4px; width: 14px; height: 2px; }
+
+/* ── HUD ── */
+#fps {
+  position: absolute; right: 10px; top: 8px; color: rgba(255,255,255,.6);
+  font: 11px/1.4 monospace; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.7);
+}
+#clock {
+  position: absolute; left: 10px; top: 8px; color: rgba(255,255,255,.75);
+  font: 12px/1.4 monospace; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  background: rgba(0,0,0,.2); padding: 2px 8px; border-radius: 10px;
+}
+#hint {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  color: rgba(255,255,255,.75); font-size: 13px; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none;
+  background: rgba(0,0,0,.25); padding: 6px 14px; border-radius: 20px;
+}
+
+/* ── Мобильные зоны ── */
+#moveZone, #lookZone { position: absolute; inset: 0 0 0 50%; display: none; }
+#moveZone { right: 50%; left: 0; }
+#lookZone { left: 50%; right: 0; }
+body.mobile #moveZone, body.mobile #lookZone { display: block; }
+body.mobile #hint { bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+/* ── Виртуальный джойстик ── */
+#joystick {
+  position: absolute; width: 110px; height: 110px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.08);
+  display: none; pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+#joystickKnob {
+  position: absolute; left: 50%; top: 50%; width: 46px; height: 46px;
+  margin: -23px 0 0 -23px; border-radius: 50%;
+  background: rgba(255,255,255,.5); border: 2px solid rgba(255,255,255,.7);
+}
+#sprintBtn {
+  position: absolute; right: 16px; bottom: 16px;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.4);
+  color: rgba(255,255,255,.8); font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  display: none; align-items: center; justify-content: center;
+  touch-action: none; z-index: 10;
+}
+#sprintBtn.active { background: rgba(120,200,120,.35); border-color: rgba(180,255,180,.7); }
+body.mobile #sprintBtn { display: flex; }
+
+/* ── Стартовый экран / пауза ── */
+#startScreen, #pauseScreen {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 20, 12, .72); backdrop-filter: blur(4px); z-index: 20;
+}
+.start-box { text-align: center; color: #e8f0e4; padding: 24px; max-width: 92vw; }
+.start-box h1 { font-size: clamp(26px, 5vw, 44px); margin-bottom: 6px; letter-spacing: 1px; }
+.start-box p { color: rgba(232,240,228,.7); margin-bottom: 26px; font-size: 15px; }
+.start-box button {
+  font-size: 18px; padding: 14px 52px; border-radius: 40px; cursor: pointer;
+  border: none; color: #123; font-weight: 700;
+  background: linear-gradient(180deg, #b9e39a, #7fbe5f);
+  box-shadow: 0 4px 18px rgba(127,190,95,.35);
+  transition: transform .12s;
+}
+.start-box button:hover { transform: scale(1.04); }
+.start-box button:active { transform: scale(.97); }
+.start-hint { margin-top: 30px; font-size: 11px; color: rgba(232,240,228,.35); }
+
+/* ── Загрузка ── */
+.loading {
+  position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  background: #0c160d; color: #cfdec8; font-size: 14px;
+}
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.15); border-top-color: #9fd37f;
+  animation: spin .9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.hidden { display: none !important; }
+
+/* ── Хотбар (панель быстрого доступа) ── */
+#hotbar {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 4px;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px; z-index: 15;
+}
+body.mobile #hotbar { bottom: calc(86px + env(safe-area-inset-bottom)); }
+body.mobile .hb-slot { width: 34px; height: 34px; }
+body.mobile .hb-slot .slot-icon svg { width: 20px; height: 20px; }
+body.mobile .hb-slot .slot-count { font-size: 9px; }
+body.mobile .hb-slot .slot-num { font-size: 8px; }
+.hb-slot {
+  width: 46px; height: 46px; border-radius: 6px;
+  background: rgba(255,255,255,.08);
+  border: 2px solid rgba(255,255,255,.22);
+  position: relative; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.hb-slot.active { border-color: #ffd76a; background: rgba(255,215,106,.18); box-shadow: 0 0 8px rgba(255,215,106,.5); }
+.hb-slot .slot-icon { font-size: 24px; line-height: 1; }
+.hb-slot .slot-count {
+  position: absolute; right: 2px; bottom: 0; font-size: 11px; font-weight: 700;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+.hb-slot .slot-num {
+  position: absolute; left: 3px; top: 0; font-size: 9px; color: rgba(255,255,255,.45);
+}
+
+/* ── Инвентарь ── */
+#inventoryScreen {
+  position: absolute; inset: 0; z-index: 25;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 16, 10, .78); backdrop-filter: blur(3px);
+}
+.inv-panel {
+  background: linear-gradient(180deg, #1d2a20, #141f17);
+  border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+  padding: 14px; width: min(560px, 94vw);
+  box-shadow: 0 10px 40px rgba(0,0,0,.6);
+}
+.inv-header {
+  display: flex; justify-content: space-between; align-items: center;
+  color: #e8f0e4; font-size: 16px; font-weight: 700; margin-bottom: 10px;
+}
+#invCloseBtn {
+  background: rgba(255,255,255,.12); color: #e8f0e4; border: none;
+  width: 30px; height: 30px; border-radius: 6px; font-size: 14px; cursor: pointer;
+}
+#invCloseBtn:hover { background: rgba(255,255,255,.22); }
+.inv-grid {
+  display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; margin-bottom: 10px;
+}
+.inv-hotbar-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+.inv-slot {
+  aspect-ratio: 1; border-radius: 6px; background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.15); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.inv-slot:hover { background: rgba(255,255,255,.15); }
+.inv-slot.active { border-color: #ffd76a; background: rgba(255,215,106,.15); }
+.inv-slot .slot-icon { font-size: 26px; line-height: 1; }
+.inv-slot .slot-count {
+  position: absolute; right: 2px; bottom: 0; font-size: 12px; font-weight: 700;
+  color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+.inv-hint { margin-top: 10px; font-size: 11px; color: rgba(232,240,228,.45); text-align: center; }
+
+/* ── Тосты (подбор предметов) ── */
+#toasts {
+  position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; z-index: 14;
+}
+body.mobile #toasts { bottom: calc(90px + env(safe-area-inset-bottom)); }
+.toast {
+  background: rgba(0,0,0,.55); color: #eaf5e2; font-size: 13px;
+  padding: 5px 14px; border-radius: 14px; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.15);
+  animation: toastIn .18s ease-out;
+}
+.toast.out { opacity: 0; transition: opacity .4s; }
+@keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ── Кнопка инвентаря (мобильные) ── */
+#invBtn {
+  position: absolute; right: 16px; top: 52px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.4);
+  color: rgba(255,255,255,.85); font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  display: none; align-items: center; justify-content: center;
+  touch-action: none; z-index: 10;
+}
+#invBtn.active { background: rgba(120,200,120,.35); border-color: rgba(180,255,180,.7); }
+body.mobile #invBtn { display: flex; }
+
+/* ── Кнопка «Собрать» (мобильные, рядом с РЮКЗАК) ── */
+#pickupBtn {
+  position: absolute; right: 16px; top: 104px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.4);
+  color: rgba(255,255,255,.85); font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  display: none; align-items: center; justify-content: center;
+  touch-action: none; z-index: 10;
+}
+#pickupBtn.active { background: rgba(120,200,120,.35); border-color: rgba(180,255,180,.7); }
+body.mobile #pickupBtn { display: flex; }
+
+/* ── Подсказка подбора (десктоп, над прицелом) ── */
+#pickupHint {
+  position: absolute; left: 50%; bottom: 42%;
+  transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 8px;
+  background: rgba(20,20,20,.55); border: 1px solid rgba(255,255,255,.25);
+  color: #fff; font-size: 13px; font-weight: 600; letter-spacing: .3px;
+  white-space: nowrap; z-index: 9;
+  pointer-events: none;
+}
+body.mobile #pickupHint { display: none; }
+#pickupHint .kbd {
+  display: inline-block; padding: 1px 7px; margin-right: 6px;
+  background: rgba(255,255,255,.18); border-radius: 5px;
+  font-size: 12px; font-weight: 700; border-bottom: 2px solid rgba(255,255,255,.3);
+}

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Сосновый лес — FPS</title>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- Прицел -->
+  <div id="crosshair"></div>
+
+  <!-- Подсказка подбора: видна, когда рядом лежит предмет -->
+  <div id="pickupHint" class="hidden"></div>
+
+  <!-- FPS-счётчик -->
+  <div id="fps">-- fps</div>
+
+  <!-- Игровые часы (цикл дня и ночи) -->
+  <div id="clock"></div>
+
+  <!-- Подсказка управления -->
+  <div id="hint">
+    <span id="hintDesktop"><b>WASD</b> — движение · <b>Мышь</b> — обзор · <b>Shift</b> — бег · <b>E</b> — инвентарь · <b>1-9</b> — хотбар · <b>Колесо</b> — смена слота · <b>T</b> — время</span>
+    <span id="hintMobile" style="display:none"><b>Левый джойстик</b> — движение · <b>Правая часть экрана</b> — обзор · <b>РЮКЗАК</b> — инвентарь · <b>СОБРАТЬ</b> — подобрать</span>
+  </div>
+
+  <!-- Мобильные контролы -->
+  <div id="moveZone"></div>
+  <div id="lookZone"></div>
+  <div id="joystick"><div id="joystickKnob"></div></div>
+  <div id="sprintBtn">БЕГ</div>
+  <div id="invBtn">РЮКЗАК</div>
+  <div id="pickupBtn" class="hidden">СОБРАТЬ</div>
+
+  <!-- Хотбар (панель быстрого доступа) -->
+  <div id="hotbar"></div>
+
+  <!-- Уведомление о подборе -->
+  <div id="toasts"></div>
+
+  <!-- Инвентарь -->
+  <div id="inventoryScreen" class="hidden">
+    <div class="inv-panel">
+      <div class="inv-header">
+        <span>Инвентарь</span>
+        <button id="invCloseBtn">✕</button>
+      </div>
+      <div class="inv-grid" id="invGrid"></div>
+      <div class="inv-hotbar-row" id="invHotbarRow"></div>
+      <div class="inv-hint">Клик по предмету — перенести в активный слот хотбара</div>
+    </div>
+  </div>
+
+  <!-- Стартовый экран -->
+  <div id="startScreen">
+    <div class="start-box">
+      <h1>Сосновый лес</h1>
+      <p>Свободное исследование леса · FPS · Собирай камни и ветки</p>
+      <button id="startBtn">Играть</button>
+      <div class="start-hint">assets: Quaternius (CC0), Kenney (CC0), Poly Haven (CC0), three.js (MIT)</div>
+    </div>
+  </div>
+
+  <!-- Пауза (при потере курсора на десктопе) -->
+  <div id="pauseScreen" style="display:none">
+    <div class="start-box">
+      <h1>Пауза</h1>
+      <button id="resumeBtn">Продолжить</button>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div id="loadingText">Загрузка леса…</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.min.js" } }
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
