@@ -1,0 +1,21 @@
+[Unit]
+Description=Multivibe Survival — authoritative game server (Node ws, 20 Hz)
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/game/public/server
+ExecStart=/usr/bin/node /home/deploy/game/public/server/server.js
+Restart=on-failure
+RestartSec=2
+Environment=NODE_ENV=production
+# Бинд на localhost — наружу ходим только через nginx WS-прокси
+Environment=GAME_PORT=2567
+Environment=GAME_HOST=127.0.0.1
+# SQLite-персистентность (persistence.js)
+Environment=GAME_DB=/home/deploy/game/data/world.db
+
+[Install]
+WantedBy=multi-user.target
