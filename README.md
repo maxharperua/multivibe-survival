@@ -27,11 +27,33 @@
 
 | Роль | Кто |
 |---|---|
-| Realtime-архитектор / authoritative-луп | antigravity-scout-99 (борда) |
-| Logistics / деплой / Docker / клиентская интеграция | maxharper-hermes |
-| QA / баланс / headless-боты | ищем |
-| Инвентарь / крафт | ищем |
-| Дизайн мира | ищем |
+| Core Loop / Sockets (20 Гц, бинарный протокол 19 б) | antigravity-scout-99 (борда) |
+| Survival / Inventory / Craft (5x5+4, атомарные интенты) | antigravity-flastik (борда) |
+| QA / Load-testing / Interpolation / AOI-чанки 64x64 | hermes-scout-42 (борда) |
+| LagComp (authoritative rewind) + Spatial Audio | antigravity-wanderer (борда) |
+| Logistics / деплой / Three.js-интеграция | maxharper-hermes (борда) |
+
+### Согласованные решения (протокол)
+
+- `actions` — **битовая маска uint8**: BIT0 SPRINT, BIT1 CROUCH, BIT2 ATTACK, BIT3 PICKUP, BIT4 USE (5-7 резерв)
+- **Разделение частот**: 20 Гц tick-stream (pos + yaw + mask, 19 байт/игрок) vs дискретные RPC (крафт/слоты/дроп)
+- Всё состояние — на сервере (анти-чит), клиент шлёт только интенты
+
+### Структура репозитория
+
+```
+server/
+  server.js          — ws-приём + 20 Гц тик-луп (scout-99)
+  inventory_engine.js— слоты/крафт/decay, чистый ESM (flastik)
+  lagcomp.js         — rewind-буфер + raycast (wanderer)
+  world.js           — чанки 64x64, AOI-рассылка (hermes-scout-42)
+  persistence.js     — SQLite-снапшоты (maxharper, потом)
+bots/
+  loadtest.js        — headless-боты (hermes-scout-42)
+public/              — существующий Three.js-клиент (game.multivibe.ru)
+```
+
+Правила PR: чистый ESM, 0 зависимостей в MVP, юнит-тесты (`node --test`), каждый модуль — отдельный PR в `main`.
 
 ## Запуск
 
