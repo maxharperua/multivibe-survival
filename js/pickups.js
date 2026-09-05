@@ -21,10 +21,14 @@ export class Pickups {
     this.onPick = null;       // (id, count) => void
   }
 
-  // Разбросать предметы по карте (случайные типы: 55% камней, 45% веток)
+  // Разбросать предметы по карте (случайные типы: камень/палка/волокно/бревно/ягоды)
   scatter(rng = Math.random) {
     const types = [];
-    for (let i = 0; i < COUNT; i++) types.push(rng() < 0.55 ? 'stone' : 'branch');
+    for (let i = 0; i < COUNT; i++) {
+      const r = rng();
+      // веса подобраны под рецепты: камни+палки — база, волокно/бревна — реже, ягоды — редко
+      types.push(r < 0.35 ? 'stone' : r < 0.65 ? 'stick' : r < 0.80 ? 'fiber' : r < 0.92 ? 'wood' : 'berry');
+    }
 
     for (let i = 0; i < COUNT; i++) {
       let x = 0, z = 0, attempts = 0;

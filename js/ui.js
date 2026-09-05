@@ -7,7 +7,17 @@ import { HOTBAR_SIZE, INVENTORY_SIZE } from './inventory.js';
 // ── SVG-иконки предметов (data URI) ──
 const SVG = {
   stone: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M7 4 L17 3 L21 9 L19 17 L10 20 L4 13 Z" fill="#9a9184" stroke="#6e675c" stroke-width="1.2"/><path d="M7 4 L12 7 L10 20 M17 3 L15 9 L19 17" stroke="#b5ac9e" stroke-width="1" fill="none"/></svg>',
-  branch: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 19 C8 14 12 10 20 5" stroke="#8a6a45" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M11 13 L14 9 M14 10 L18 8 M8 15 L5 13" stroke="#a8844f" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  stick: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 19 C8 14 12 10 20 5" stroke="#8a6a45" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M11 13 L14 9 M14 10 L18 8 M8 15 L5 13" stroke="#a8844f" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  fiber: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 20 C8 13 16 11 19 4" stroke="#c8b98a" stroke-width="3.4" fill="none" stroke-linecap="round"/><path d="M3 17 C6 10 14 8 17 1" stroke="#a8985f" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>',
+  wood: '<svg viewBox="0 0 24 24" width="26" height="26"><rect x="4" y="9" width="16" height="7" rx="2" fill="#6b4f2e" stroke="#4a341a" stroke-width="1.2"/><ellipse cx="4.5" cy="12.5" rx="2" ry="3.5" fill="#8a6a45" stroke="#4a341a" stroke-width="1"/><path d="M12 9 v7 M16 9 v7 M8 9 v7" stroke="#5a4022" stroke-width="1" fill="none"/></svg>',
+  berry: '<svg viewBox="0 0 24 24" width="26" height="26"><circle cx="9" cy="14" r="3.2" fill="#b33030" stroke="#7a1f1f" stroke-width="1"/><circle cx="15" cy="12" r="3.2" fill="#cc3d3d" stroke="#7a1f1f" stroke-width="1"/><circle cx="12" cy="18" r="2.6" fill="#9e2929" stroke="#7a1f1f" stroke-width="1"/><path d="M12 11 C12 9 13 8 14 6" stroke="#4a7a2f" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+  rope: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 12 Q9 6 14 12 T24 12" stroke="#d9c48a" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M4 15 Q9 9 14 15 T24 15" stroke="#b8a265" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>',
+  plank: '<svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="10" width="18" height="4" rx="1" fill="#9a7448" stroke="#6b4f2e" stroke-width="1.2"/><path d="M3 11 h18 M3 13 h18" stroke="#7a5a34" stroke-width="0.7" fill="none"/></svg>',
+  axe: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M6 21 L13 14" stroke="#8a6a45" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M12 13 L20 8 L19 4 L15 5 L10 11 Z" fill="#9a9184" stroke="#5c554b" stroke-width="1"/></svg>',
+  spear: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 20 L17 7" stroke="#8a6a45" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M17 4 L20 7 L16 9 Z" fill="#b5ac9e" stroke="#5c554b" stroke-width="1"/><path d="M12 12 L14 10" stroke="#c8b98a" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>',
+  campfire_kit: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M8 18 L4 22 M16 18 L20 22 M12 18 L8 22 M12 18 L16 22" stroke="#8a6a45" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="12" cy="12" r="4" fill="#d97a2b" stroke="#a04e12" stroke-width="1"/><path d="M12 8 C11 6 12 5 12 3 C14 5 14 6 13 8" fill="#ffb84d" stroke="none"/></svg>',
+  shelter_kit: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 17 L12 6 L20 17 Z" fill="none" stroke="#6b4f2e" stroke-width="2.4" stroke-linejoin="round"/><path d="M3 17 h18" stroke="#8a6a45" stroke-width="2.6" stroke-linecap="round"/><path d="M9 17 L11 14 M15 17 L13 14 M12 14 L12 17" stroke="#a8844f" stroke-width="1.4" fill="none"/></svg>',
+  cooked_meat: '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 13 C5 8 8 5 13 4 C18 5 19 9 18 13 C17 17 14 19 11 19 C7 19 5 17 5 13 Z" fill="#8a5a2b" stroke="#5c3a16" stroke-width="1.2"/><path d="M8 9 C10 11 11 8 13 10" stroke="#ffd9a0" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
 };
 
 export function itemIcon(id) {
@@ -68,7 +78,7 @@ export class InventoryUI {
     this.hotbarRowEl = hotbarRowEl;
     this.closeBtn = closeBtn;
     this.onClose = onClose || (() => {});
-    this.open = false;
+    this.isOpen = false;
 
     this._buildGrid();
     this._buildHotbarRow();
@@ -138,20 +148,20 @@ export class InventoryUI {
   }
 
   open() {
-    this.open = true;
+    this.isOpen = true;
     this.screen.classList.remove('hidden');
     this.render();
   }
 
   close() {
-    if (!this.open) return;
-    this.open = false;
+    if (!this.isOpen) return;
+    this.isOpen = false;
     this.screen.classList.add('hidden');
     this.onClose();
   }
 
   toggle() {
-    if (this.open) this.close();
+    if (this.isOpen) this.close();
     else this.open();
   }
 }

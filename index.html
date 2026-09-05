@@ -36,6 +36,9 @@
   <!-- Игровые часы (цикл дня и ночи) -->
   <div id="clock"></div>
 
+  <!-- Текущая зона леса (HUD-тег): видна, когда игрок в зоне -->
+  <div id="zoneTag" class="hidden"></div>
+
   <!-- Подсказка управления -->
   <div id="hint">
     <span id="hintDesktop"><b>WASD</b> — движение · <b>Мышь</b> — обзор · <b>Shift</b> — бег · <b>E</b> — инвентарь · <b>1-9</b> — хотбар · <b>Колесо</b> — смена слота · <b>T</b> — время</span>
@@ -66,6 +69,10 @@
       <div class="inv-grid" id="invGrid"></div>
       <div class="inv-hotbar-row" id="invHotbarRow"></div>
       <div class="inv-hint">Клик по предмету — перенести в активный слот хотбара</div>
+    </div>
+    <div class="craft-panel">
+      <div class="craft-header">Крафт</div>
+      <div class="craft-list" id="craftList"></div>
     </div>
   </div>
 

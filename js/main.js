@@ -13,6 +13,8 @@ import { HotbarUI, InventoryUI, HandItem, showToast, syncHandItem } from './ui.j
 import { ITEMS, loadItemModels } from './items.js';
 import { NetClient } from './net.js';
 import { RemotePlayers } from './remote.js';
+import { CraftPanel } from './crafting.js';
+import { getZoneAt } from './zones.js';
 
 const params = new URLSearchParams(location.search);
 const IS_MOBILE = params.get('mobile') === '1' ||
@@ -63,6 +65,8 @@ let invUI = null;
 let net = null;
 let remotePlayers = null;
 let netOnline = false;
+let craftPanel = null;
+let currentZoneId = null;
 
 // Небесный купол: фото-панорама (Skyrim-style) днём, растворяется к ночи
 // (текстуры ≤1024px для мобильных, 2048 для десктопа)
@@ -211,7 +215,13 @@ async function build() {
       if (started && !IS_MOBILE) input.requestLock();
     }
   );
-  inventory.onChange = () => { hotbarUI.render(); invUI.render(); syncHandItem(inventory, handItem); };
+  // Крафт: панель в инвентаре (движок recipes.js, влит в main из треда борды)
+  craftPanel = new CraftPanel(
+    document.getElementById('craftList'),
+    inventory,
+    showToast
+  );
+  inventory.onChange = () => { hotbarUI.render(); invUI.render(); syncHandItem(inventory, handItem); if (craftPanel) craftPanel.render(); };
   inventory.onActiveChange = () => { hotbarUI.renderActive(); invUI.render(); syncHandItem(inventory, handItem); };
 
   // следящая тень за игроком (солнце позиционирует daynight)
@@ -335,6 +345,24 @@ function loop() {
       } else {
         if (hint) hint.classList.add('hidden');
         if (btn) btn.classList.add('hidden');
+      }
+    }
+    // зона леса: HUD-тег с названием + подсказка при входе (zones.js, влит из треда борды)
+    if (started) {
+      const zone = getZoneAt(player.pos.x, player.pos.z);
+      const zt = document.getElementById('zoneTag');
+      if (zone) {
+        if (zt) {
+          zt.textContent = zone.name;
+          zt.classList.remove('hidden');
+        }
+        if (zone.id !== currentZoneId) {
+          currentZoneId = zone.id;
+          showToast(`${zone.name}: ${zone.note}`);
+        }
+      } else if (currentZoneId !== null) {
+        currentZoneId = null;
+        if (zt) zt.classList.add('hidden');
       }
     }
     if (handItem) handItem.update(dt, started && (player.keys.fwd !== 0 || player.keys.strafe !== 0));

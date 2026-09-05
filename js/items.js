@@ -1,7 +1,8 @@
 // items.js — определения предметов и их 3D-модели.
-// Камень и ветка — готовые CC0 GLB-модели:
+// Камень и палка — готовые CC0 GLB-модели:
 //   stone  — rockflat.glb (Kenney, CC0, плоский булыжник 1.8м)
-//   branch — twig.glb (Quaternius, CC0, ветка 0.17м)
+//   stick  — twig.glb (Quaternius, CC0, ветка 0.17м)
+// Волокно, бревно, ягоды — процедурные (без GLB).
 // Модели загружаются асинхронно через loadItemModels() до разброса пикапов.
 // Если загрузка не удалась — процедурный fallback (геометрии ниже).
 import * as THREE from 'three';
@@ -26,7 +27,7 @@ function stoneGeometry(seed = 1) {
 }
 
 function branchGeometry() {
-  const key = 'branch';
+  const key = 'stick';
   if (_geoCache.has(key)) return _geoCache.get(key);
   const geo = new THREE.CylinderGeometry(0.03, 0.05, 0.7, 6, 1);
   geo.translate(0, 0.35, 0);
@@ -44,8 +45,48 @@ function branchGeometry() {
   return geo;
 }
 
+// Бревно — толстый цилиндр с обрубками торцов
+function logGeometry() {
+  const key = 'wood';
+  if (_geoCache.has(key)) return _geoCache.get(key);
+  const geo = new THREE.CylinderGeometry(0.09, 0.11, 0.55, 7, 1);
+  geo.translate(0, 0.27, 0);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), y = pos.getY(i);
+    const n = 0.92 + Math.abs(Math.sin(x * 17.0 + z * 13.0 + y * 3.0)) * 0.16;
+    pos.setXYZ(i, x * n, y, z * n);
+  }
+  geo.computeVertexNormals();
+  _geoCache.set(key, geo);
+  return geo;
+}
+
+// Волокно — скрученный жгут из двух тонких цилиндров
+function fiberGeometry() {
+  const key = 'fiber';
+  if (_geoCache.has(key)) return _geoCache.get(key);
+  const geo = new THREE.CylinderGeometry(0.018, 0.018, 0.5, 5, 1);
+  geo.translate(0, 0.25, 0);
+  _geoCache.set(key, geo);
+  return geo;
+}
+
+// Ягоды — гроздь из трёх мелких сфер
+function berryGeometry() {
+  const key = 'berry';
+  if (_geoCache.has(key)) return _geoCache.get(key);
+  const geo = new THREE.SphereGeometry(0.055, 8, 6);
+  geo.translate(0, 0.05, 0);
+  _geoCache.set(key, geo);
+  return geo;
+}
+
 const matStone = new THREE.MeshStandardMaterial({ color: 0x9a9184, roughness: 0.95, metalness: 0.02 });
 const matBranch = new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 0.9, metalness: 0.0 });
+const matLog = new THREE.MeshStandardMaterial({ color: 0x6b4f2e, roughness: 0.95, metalness: 0.0 });
+const matFiber = new THREE.MeshStandardMaterial({ color: 0xc8b98a, roughness: 1.0, metalness: 0.0 });
+const matBerry = new THREE.MeshStandardMaterial({ color: 0xb33030, roughness: 0.6, metalness: 0.05 });
 
 // ── Загруженные GLB-модели ──
 const _models = new Map(); // id -> { geometry, material }
@@ -113,19 +154,141 @@ export const ITEMS = {
     handRot: [0, 0, 0],
     makeMesh: () => new THREE.Mesh(stoneGeometry(1), matStone),
   },
-  branch: {
-    id: 'branch',
-    name: 'Ветка',
+  stick: {
+    id: 'stick',
+    name: 'Палка',
     stack: 64,
     color: '#a8844f',
     size: 1,
     model: './assets/models/twig.glb',
     // twig в GLB стоит вертикально (длина 0.17 по Y) — поворачиваем, чтобы лежала
     lieFlat: -Math.PI / 2,
-    pickScale: 1.2,     // twig 0.17м -> ~0.2м ветка
+    pickScale: 1.2,     // twig 0.17м -> ~0.2м палка
     handScale: 1.6,
     handRot: [0.6, 0, 0.15],
     makeMesh: () => new THREE.Mesh(branchGeometry(), matBranch),
+  },
+  fiber: {
+    id: 'fiber',
+    name: 'Волокно',
+    stack: 64,
+    color: '#c8b98a',
+    size: 1,
+    pickScale: 0.9,
+    handScale: 1.4,
+    handRot: [0, 0.4, 0],
+    makeMesh: () => new THREE.Mesh(fiberGeometry(), matFiber),
+  },
+  wood: {
+    id: 'wood',
+    name: 'Бревно',
+    stack: 32,
+    color: '#6b4f2e',
+    size: 1,
+    pickScale: 0.55,
+    handScale: 0.55,
+    handRot: [0, 0, 0],
+    makeMesh: () => new THREE.Mesh(logGeometry(), matLog),
+  },
+  berry: {
+    id: 'berry',
+    name: 'Ягоды',
+    stack: 64,
+    color: '#b33030',
+    size: 1,
+    pickScale: 1.0,
+    handScale: 1.1,
+    handRot: [0, 0, 0],
+    makeMesh: () => new THREE.Mesh(berryGeometry(), matBerry),
+  },
+  // ── Крафтовые предметы (появляются через крафт, на земле не лежат) ──
+  rope: {
+    id: 'rope',
+    name: 'Верёвка',
+    stack: 32,
+    color: '#d9c48a',
+    size: 1,
+    handScale: 1.0,
+    handRot: [0, 0, 0],
+    makeMesh: () => {
+      const g = new THREE.Group();
+      const m = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.028, 6, 12), matFiber);
+      m.rotation.x = Math.PI / 2;
+      g.add(m);
+      const m2 = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.028, 6, 12), matFiber);
+      m2.rotation.set(Math.PI / 2, 0, Math.PI / 3);
+      g.add(m2);
+      return g;
+    },
+  },
+  plank: {
+    id: 'plank',
+    name: 'Доска',
+    stack: 32,
+    color: '#9a7448',
+    size: 1,
+    handScale: 0.7,
+    handRot: [0, 0, 0],
+    makeMesh: () => new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.14), matLog),
+  },
+  axe: {
+    id: 'axe',
+    name: 'Топор',
+    stack: 1,
+    color: '#9a9184',
+    size: 1,
+    handScale: 0.9,
+    handRot: [0.3, 0.4, 0],
+    makeMesh: () => {
+      const g = new THREE.Group();
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.55, 6), matBranch);
+      handle.position.y = 0.27;
+      g.add(handle);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 0.05), matStone);
+      head.position.set(0.09, 0.52, 0);
+      g.add(head);
+      return g;
+    },
+  },
+  spear: {
+    id: 'spear',
+    name: 'Копьё',
+    stack: 1,
+    color: '#b5ac9e',
+    size: 1,
+    handScale: 1.0,
+    handRot: [0, 0, 0],
+    makeMesh: () => {
+      const g = new THREE.Group();
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 1.1, 6), matBranch);
+      shaft.position.y = 0.55;
+      g.add(shaft);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.2, 6), matStone);
+      tip.position.y = 1.18;
+      g.add(tip);
+      return g;
+    },
+  },
+  campfire_kit: {
+    id: 'campfire_kit',
+    name: 'Костровой набор',
+    stack: 1,
+    color: '#d97a2b',
+    size: 1,
+  },
+  shelter_kit: {
+    id: 'shelter_kit',
+    name: 'Набор для шалаша',
+    stack: 1,
+    color: '#6b4f2e',
+    size: 1,
+  },
+  cooked_meat: {
+    id: 'cooked_meat',
+    name: 'Жареное мясо',
+    stack: 32,
+    color: '#8a5a2b',
+    size: 1,
   },
 };
 
