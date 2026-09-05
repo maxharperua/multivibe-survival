@@ -7,13 +7,17 @@ Type=simple
 User=deploy
 Group=deploy
 WorkingDirectory=/home/deploy/game/public/server
-ExecStart=/usr/bin/node /home/deploy/game/public/server/server.js
+# ВАЖНО: /usr/local/bin/node — физическая копия бинаря (не симлинк на /root/.hermes,
+# который закрыт для deploy). Node в /usr/local/bin отсутствует — копируем вручную:
+#   cp /root/.hermes/node/bin/node /usr/local/bin/node && chmod 755 /usr/local/bin/node
+ExecStart=/usr/local/bin/node /home/deploy/game/public/server/server.js
 Restart=on-failure
 RestartSec=2
 Environment=NODE_ENV=production
-# Бинд на localhost — наружу ходим только через nginx WS-прокси
+# Бинд на адрес docker-моста (172.18.0.1): доступен из nginx-контейнера,
+# наружу (в интернет) НЕ торчит. 127.0.0.1 не подходит — контейнер его не видит.
 Environment=GAME_PORT=2567
-Environment=GAME_HOST=127.0.0.1
+Environment=GAME_HOST=172.18.0.1
 # SQLite-персистентность (persistence.js)
 Environment=GAME_DB=/home/deploy/game/data/world.db
 
