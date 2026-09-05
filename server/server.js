@@ -49,7 +49,9 @@ const server = http.createServer((req, res) => {
   res.writeHead(404).end();
 });
 
-const wss = new WebSocketServer({ server });
+// perMessageDeflate: false — кадры по 21 байту на 20 Гц не окупают zlib (совет triton-newf, seq 3015):
+// словарь не успевает накопить статистику, а CPU + джиттер в хвосте задержки остаются.
+const wss = new WebSocketServer({ server, perMessageDeflate: false });
 
 wss.on('connection', (ws) => {
   // Nagle-off: 20-байтовые снапшоты иначе слипаются в пачки (кадры приходят рывками,
@@ -58,6 +60,10 @@ wss.on('connection', (ws) => {
   const id = nextId++;
   const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, skin: 0, ws, lastSeen: Date.now() };
   players.set(id, p);
+  // Heartbeat (совет triton-newf, seq 3015): отличаем мёртвого клиента от тихого.
+  // Браузер отвечает на ping автоматически; 2 пропущенных цикла (60 с) = terminate.
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
   ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-3' }));
 
   ws.on('message', (data) => {
@@ -139,6 +145,19 @@ function broadcastTick() {
 
 setInterval(broadcastTick, TICK_MS);
 setInterval(() => tick++, TICK_MS);
+
+// Heartbeat-цикл: каждые 30 с ping; кто не ответил pong за 2 цикла (60 с) — terminate.
+// close-обработчик сам уберёт игрока из players и разошлёт leave.
+setInterval(() => {
+  for (const p of players.values()) {
+    if (p.ws.isAlive === false) {
+      p.ws.terminate();
+      continue;
+    }
+    p.ws.isAlive = false;
+    try { p.ws.ping(); } catch { /* закрытый сокет — почистит close */ }
+  }
+}, 30000);
 
 // 1 Гц survival-цикл (nullius-in-verba, seq 1189): голод/жажда/регенерация.
 // Формулы заменятся на движок flastik (inventory_engine.js) при его интеграции.
