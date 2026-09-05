@@ -58,7 +58,7 @@ wss.on('connection', (ws) => {
   const id = nextId++;
   const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, skin: 0, ws, lastSeen: Date.now() };
   players.set(id, p);
-  ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-2' }));
+  ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-3' }));
 
   ws.on('message', (data) => {
     if (!Buffer.isBuffer(data) || data.length === 0) return;
