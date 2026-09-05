@@ -11,6 +11,8 @@ import { Inventory } from './inventory.js';
 import { Pickups } from './pickups.js';
 import { HotbarUI, InventoryUI, HandItem, showToast, syncHandItem } from './ui.js';
 import { ITEMS, loadItemModels } from './items.js';
+import { NetClient } from './net.js';
+import { RemotePlayers } from './remote.js';
 
 const params = new URLSearchParams(location.search);
 const IS_MOBILE = params.get('mobile') === '1' ||
@@ -58,6 +60,9 @@ let pickups = null;
 let handItem = null;
 let inventoryOpen = false;
 let invUI = null;
+let net = null;
+let remotePlayers = null;
+let netOnline = false;
 
 // Небесный купол: фото-панорама (Skyrim-style) днём, растворяется к ночи
 // (текстуры ≤1024px для мобильных, 2048 для десктопа)
@@ -133,6 +138,42 @@ async function build() {
     }
   }
 
+  // ── Онлайн-слой (mvp-2): подключение к серверу, рендер других игроков ──
+  remotePlayers = new RemotePlayers(scene);
+  let name = 'Выживший-' + Math.floor(1000 + Math.random() * 9000);
+  try { name = localStorage.getItem('mv_name') || name; } catch {}
+  const netStatusEl = document.getElementById('netStatus');
+  const netDotEl = document.getElementById('netDot');
+  const netTextEl = document.getElementById('netText');
+  net = new NetClient({
+    name,
+    room,
+    onPlayers: (players) => {
+      remotePlayers.apply(players);
+      // «онлайн: N» — сколько человек сейчас на сервере (без нас)
+      if (netTextEl && netOnline) {
+        const n = players.size + 1;
+        netTextEl.textContent = n > 1 ? `онлайн: ${n}` : 'онлайн';
+      }
+    },
+    onLeave: (id) => remotePlayers.remove(id),
+    onStatus: ({ online, error }) => {
+      netOnline = online;
+      if (online) remotePlayers.myId = net.myId;
+      if (netStatusEl) {
+        netStatusEl.classList.remove('hidden');
+        netStatusEl.classList.toggle('online', online);
+        netStatusEl.classList.toggle('offline', !online);
+      }
+      if (netTextEl) {
+        netTextEl.textContent = online ? 'онлайн' : (error ? 'оффлайн' : 'оффлайн');
+      }
+      if (online) showToast('Подключено к серверу — вы в общем лесу!');
+    },
+  });
+  net.connect();
+  window.__net = net;
+
   // Инвентарь и собираемые предметы
   inventory = new Inventory();
   // GLB-модели камня/ветки (CC0) — до разброса пикапов
@@ -186,7 +227,7 @@ async function build() {
   }
 
   // отладочный хук для автотестов
-  window.__game = { player, forest, scene, camera, IS_MOBILE, inventory, pickups, handItem };
+  window.__game = { player, forest, scene, camera, IS_MOBILE, inventory, pickups, handItem, net, remotePlayers };
   window.__pauseRender = () => { started = false; cancelAnimationFrame(rafId); };
 }
 
@@ -256,6 +297,20 @@ function loop() {
       else input && input.applyToPlayer();
       player.update(dt);
     }
+    // сетевой ввод: мировое направление (как в Player.update), спринт = BIT0
+    if (net) {
+      if (started && !inventoryOpen) {
+        const pk = player.keys;
+        const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+        let mx = 0, mz = 0;
+        if (pk.fwd !== 0) { mx += -sin * pk.fwd; mz += -cos * pk.fwd; }
+        if (pk.strafe !== 0) { mx += cos * pk.strafe; mz += -sin * pk.strafe; }
+        net.setInput(mx, mz, player.yaw, pk.run ? 1 : 0);
+      } else {
+        net.setInput(0, 0, player.yaw, 0); // на паузе/в инвентаре — стоим
+      }
+      net.update(dt);
+    }
     // сбор предметов: подсказка о ближайшем, сбор — только по кнопке (F / кнопка «Собрать»)
     if (pickups) {
       const near = pickups.nearest(player.pos);
@@ -275,6 +330,7 @@ function loop() {
     if (handItem) handItem.update(dt, started && (player.keys.fwd !== 0 || player.keys.strafe !== 0));
     forest.update(player.pos);
     dayNight.update(dt, player.pos);
+    if (remotePlayers) remotePlayers.update(dt); // интерполяция чужих игроков
     if (skyDome) {
       skyDome.follow(player.pos);
       skyDome.update(dayNight, dt);
