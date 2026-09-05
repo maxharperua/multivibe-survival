@@ -25,11 +25,15 @@ export class RemotePlayers {
       if (!r) {
         r = this._create(id);
         r.prev = { x: p.x, z: p.z, yaw: p.yaw };
+        r.prevT = now;
+        r.target = { x: p.x, z: p.z, yaw: p.yaw, hp: p.hp };
         this.map.set(id, r);
       } else {
+        // новый снапшот: прошлая цель становится точкой старта интерполяции
         r.prev = { x: r.target.x, z: r.target.z, yaw: r.target.yaw };
+        r.prevT = now;
+        r.target = { x: p.x, z: p.z, yaw: p.yaw, hp: p.hp };
       }
-      r.target = { x: p.x, z: p.z, yaw: p.yaw, hp: p.hp };
       r.lastSeen = now;
     }
     // игроки, которых нет в снапшоте (сервер их не видит) — скрываем
@@ -100,17 +104,20 @@ export class RemotePlayers {
     return { group, target: { x: 0, z: 0, yaw: 0, hp: 100 }, prev: { x: 0, z: 0, yaw: 0 }, t: 0, lastSeen: 0, _fg: fg };
   }
 
-  // Вызывается каждый кадр: интерполяция к целевому состоянию
+  // Вызывается каждый кадр: интерполяция prev→target за LERP_MS (плавно, без рывков)
   update(dt) {
-    const k = Math.min(1, dt * 12); // быстрая интерполяция (задержка ~80 мс)
+    const LERP_MS = 120;
+    const now = performance.now();
     for (const r of this.map.values()) {
-      r.group.position.x += (r.target.x - r.group.position.x) * k;
-      r.group.position.z += (r.target.z - r.group.position.z) * k;
+      const alpha = Math.min(1, (now - r.prevT) / LERP_MS);
+      const k = Math.min(1, alpha);
+      r.group.position.x = r.prev.x + (r.target.x - r.prev.x) * k;
+      r.group.position.z = r.prev.z + (r.target.z - r.prev.z) * k;
       // кратчайшая дуга для yaw
-      let dy = r.target.yaw - r.group.rotation.y;
+      let dy = r.target.yaw - r.prev.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
-      r.group.rotation.y += dy * k;
+      r.group.rotation.y = r.prev.yaw + dy * k;
       // HP-полоска
       const hp = Math.max(0, Math.min(100, r.target.hp || 100));
       r._fg.scale.x = hp / 100;
