@@ -51,6 +51,9 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
+  // Nagle-off: 20-байтовые снапшоты иначе слипаются в пачки (кадры приходят рывками,
+  // клиентская интерполяция не успевает — проверено сниффером: dt=0ms на всех кадрах)
+  try { ws._socket.setNoDelay(true); } catch { /* до handshake может не быть сокета */ }
   const id = nextId++;
   const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, ws, lastSeen: Date.now() };
   players.set(id, p);
