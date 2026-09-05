@@ -15,14 +15,15 @@ const TICK_HZ = 20;
 const TICK_MS = 1000 / TICK_HZ;
 
 // ── Константы протокола ──
-// Снапшот игрока: 19 байт
+// Снапшот игрока: 20 байт (mvp-2; байт 18 — флаги действий, байт 19 — HP)
 //  0  uint32  tick_id      (серверный тик, для LERP/rewind)
 //  4  float32 x
 //  8  float32 y
 // 12  float32 z
 // 16  int16   yaw          (масштаб: yaw_rad * (32767/PI))
 // 18  uint8   action_flags (последние действия игрока)
-const SNAP_SIZE = 19;
+// 19  uint8   hp           (0-255, для HUD)
+const SNAP_SIZE = 20;
 // Действия (битовая маска, согласована с командой)
 const A_SPRINT = 1 << 0;
 const A_CROUCH = 1 << 1;
@@ -51,9 +52,9 @@ const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
   const id = nextId++;
-  const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, ws, lastSeen: Date.now() };
+  const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, ws, lastSeen: Date.now() };
   players.set(id, p);
-  ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-1' }));
+  ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-2' }));
 
   ws.on('message', (data) => {
     if (!Buffer.isBuffer(data) || data.length === 0) return;
@@ -65,19 +66,23 @@ wss.on('connection', (ws) => {
       } catch { /* молчим — оставляем player-N */ }
     } else if (type === 0x02 && data.length >= 12) { // InputVector
       const dv = new DataView(data.buffer, data.byteOffset, 12);
-      const dx = dv.getFloat32(1, true);
-      const dz = dv.getFloat32(5, true);
+      let dx = dv.getFloat32(1, true);
+      let dz = dv.getFloat32(5, true);
       const yaw = dv.getInt16(9, true) / YAW_SCALE;
       const flags = dv.getUint8(11);
       p.flags = flags;
       p.lastSeen = Date.now();
+      // Trust boundary (ревью cafe-visitor, seq 1045):
+      // 1) NaN/Inf-отравление координат — отбрасываем невалидный ввод
+      if (!Number.isFinite(dx) || !Number.isFinite(dz)) { dx = 0; dz = 0; }
+      // 2) Анти-спидхак: клиппим вектор ввода к единичной длине (|v| <= 1)
+      const len = Math.hypot(dx, dz);
+      if (len > 1) { dx /= len; dz /= len; }
       // Авторитарное перемещение (MVP: плоскость, коллизии — world.js)
       const speed = (flags & A_SPRINT) ? 4.5 : 3.0;
-      const len = Math.hypot(dx, dz);
-      if (len > 0.0001) {
-        const nx = dx / len, nz = dz / len;
-        p.x += nx * speed * (TICK_MS / 1000);
-        p.z += nz * speed * (TICK_MS / 1000);
+      if (dx !== 0 || dz !== 0) {
+        p.x += dx * speed * (TICK_MS / 1000);
+        p.z += dz * speed * (TICK_MS / 1000);
         p.yaw = yaw;
       }
       // Атака/сбор — события пока не реализованы, флаги сохраняются в снапшот
@@ -119,6 +124,7 @@ function broadcastTick() {
     snapView.setFloat32(off + 12, p.z, true);
     snapView.setInt16(off + 16, p.yaw * YAW_SCALE, true);
     snapView.setUint8(off + 18, p.flags);
+    snapView.setUint8(off + 19, Math.max(0, Math.min(255, Math.round(p.hp))));
     off += SNAP_SIZE;
   }
   const frame = Buffer.from(snapBuf, 0, needed);
@@ -127,6 +133,20 @@ function broadcastTick() {
 
 setInterval(broadcastTick, TICK_MS);
 setInterval(() => tick++, TICK_MS);
+
+// 1 Гц survival-цикл (nullius-in-verba, seq 1189): голод/жажда/регенерация.
+// Формулы заменятся на движок flastik (inventory_engine.js) при его интеграции.
+setInterval(() => {
+  for (const p of players.values()) {
+    p.hunger = Math.max(0, p.hunger - 0.2);
+    p.thirst = Math.max(0, p.thirst - 0.4);
+    if (p.hunger === 0 || p.thirst === 0) {
+      p.hp = Math.max(0, p.hp - 1);          // голод/обезвоживание: -1 HP/с
+    } else {
+      p.hp = Math.min(100, p.hp + 0.2);      // сытый — медленно регенерирует
+    }
+  }
+}, 1000);
 
 server.listen(PORT, HOST, () => {
   console.log(`[multivibe] server on ws://${HOST}:${PORT}, ${TICK_HZ} Hz`);
