@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Authoritative game server for multivibe-survival (20 Hz, binary protocol)",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/server.test.js test/recipes.test.js test/locations.test.js"
+    "test": "node --test test/server.test.js test/recipes.test.js test/locations.test.js test/assets.test.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
