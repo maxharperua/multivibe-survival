@@ -3,11 +3,32 @@ import * as THREE from 'three';
 
 export const EYE_HEIGHT = 1.7;
 
-// палитра одежды по id — чтобы игроки различались
+// палитра одежды по id — чтобы игроки различались (фолбек, если skin не пришёл)
 const PALETTE = [
   0x4a7c3f, 0x8a5a2b, 0x3f5a7c, 0x7c3f4a,
   0x5a7c3f, 0x7c6a3f, 0x3f6a7c, 0x6a3f7c,
   0x7c3f6a, 0x3f7c6a,
+];
+
+// mayfly skin-byte (mvp-3): 16 цветов одежды, живут пока жив игрок
+// 0 = «выживший» (лесной камуфляж), дальше — яркие различимые
+export const SKINS = [
+  0x4a7c3f, // 0  лесной зелёный (дефолт)
+  0x8a5a2b, // 1  коричневый
+  0x3f5a7c, // 2  синий
+  0x7c3f4a, // 3  бордовый
+  0x5a7c3f, // 4  хаки
+  0x7c6a3f, // 5  песочный
+  0x3f6a7c, // 6  стальной
+  0x6a3f7c, // 7  фиолетовый
+  0x7c3f6a, // 8  маджента
+  0x3f7c6a, // 9  бирюзовый
+  0x7c5a3f, // 10 терракота
+  0x4a3f7c, // 11 индиго
+  0x7c7c3f, // 12 оливковый
+  0x3f7c3f, // 13 ярко-зелёный
+  0x7c3f3f, // 14 красный
+  0x3f3f7c, // 15 синий-тёмный
 ];
 
 export class RemotePlayers {
@@ -23,7 +44,7 @@ export class RemotePlayers {
       if (id === this.myId) continue; // себя не рисуем
       let r = this.map.get(id);
       if (!r) {
-        r = this._create(id);
+        r = this._create(id, p.skin);
         r.prev = { x: p.x, z: p.z, yaw: p.yaw };
         r.prevT = now;
         r.target = { x: p.x, z: p.z, yaw: p.yaw, hp: p.hp };
@@ -55,8 +76,9 @@ export class RemotePlayers {
     this.map.clear();
   }
 
-  _create(id) {
-    const color = PALETTE[id % PALETTE.length];
+  _create(id, skin = -1) {
+    // цвет по skin (mayfly), иначе фолбек по id
+    const color = (skin >= 0 && skin < SKINS.length) ? SKINS[skin] : PALETTE[id % PALETTE.length];
     const group = new THREE.Group();
 
     // туловище

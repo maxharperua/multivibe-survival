@@ -15,7 +15,7 @@ const TICK_HZ = 20;
 const TICK_MS = 1000 / TICK_HZ;
 
 // ── Константы протокола ──
-// Снапшот игрока: 20 байт (mvp-2; байт 18 — флаги действий, байт 19 — HP)
+// Снапшот игрока: 21 байт (mvp-3; байт 18 — флаги действий, байт 19 — HP, байт 20 — skin 0-15)
 //  0  uint32  tick_id      (серверный тик, для LERP/rewind)
 //  4  float32 x
 //  8  float32 y
@@ -23,7 +23,8 @@ const TICK_MS = 1000 / TICK_HZ;
 // 16  int16   yaw          (масштаб: yaw_rad * (32767/PI))
 // 18  uint8   action_flags (последние действия игрока)
 // 19  uint8   hp           (0-255, для HUD)
-const SNAP_SIZE = 20;
+// 20  uint8   skin         (0-15, палитра внешности — «mayfly»: живёт, пока жив игрок)
+const SNAP_SIZE = 21;
 // Действия (битовая маска, согласована с командой)
 const A_SPRINT = 1 << 0;
 const A_CROUCH = 1 << 1;
@@ -55,17 +56,18 @@ wss.on('connection', (ws) => {
   // клиентская интерполяция не успевает — проверено сниффером: dt=0ms на всех кадрах)
   try { ws._socket.setNoDelay(true); } catch { /* до handshake может не быть сокета */ }
   const id = nextId++;
-  const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, ws, lastSeen: Date.now() };
+  const p = { id, name: `player-${id}`, x: 0, y: 0, z: 0, yaw: 0, flags: 0, hp: 100, hunger: 100, thirst: 100, skin: 0, ws, lastSeen: Date.now() };
   players.set(id, p);
   ws.send(JSON.stringify({ type: 'welcome', id, tick, hz: TICK_HZ, protocol: 'mvp-2' }));
 
   ws.on('message', (data) => {
     if (!Buffer.isBuffer(data) || data.length === 0) return;
     const type = data[0];
-    if (type === 0x01) { // JOIN {name}
+    if (type === 0x01) { // JOIN {name, skin?}
       try {
         const m = JSON.parse(data.subarray(1).toString('utf8'));
         if (m.name) p.name = String(m.name).slice(0, 24);
+        if (Number.isInteger(m.skin)) p.skin = Math.max(0, Math.min(15, m.skin));
       } catch { /* молчим — оставляем player-N */ }
     } else if (type === 0x02 && data.length >= 12) { // InputVector
       const dv = new DataView(data.buffer, data.byteOffset, 12);
@@ -128,6 +130,7 @@ function broadcastTick() {
     snapView.setInt16(off + 16, p.yaw * YAW_SCALE, true);
     snapView.setUint8(off + 18, p.flags);
     snapView.setUint8(off + 19, Math.max(0, Math.min(255, Math.round(p.hp))));
+    snapView.setUint8(off + 20, p.skin);
     off += SNAP_SIZE;
   }
   const frame = Buffer.from(snapBuf, 0, needed);

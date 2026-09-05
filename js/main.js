@@ -142,12 +142,22 @@ async function build() {
   remotePlayers = new RemotePlayers(scene);
   let name = 'Выживший-' + Math.floor(1000 + Math.random() * 9000);
   try { name = localStorage.getItem('mv_name') || name; } catch {}
+  // mayfly skin-byte: случайный цвет при первом заходе, дальше — стабильный
+  let skin = 0;
+  try {
+    skin = parseInt(localStorage.getItem('mv_skin'), 10);
+    if (!Number.isInteger(skin) || skin < 0 || skin > 15) {
+      skin = Math.floor(Math.random() * 16);
+      localStorage.setItem('mv_skin', String(skin));
+    }
+  } catch {}
   const netStatusEl = document.getElementById('netStatus');
   const netDotEl = document.getElementById('netDot');
   const netTextEl = document.getElementById('netText');
   net = new NetClient({
     name,
     room,
+    skin,
     onPlayers: (players) => {
       remotePlayers.apply(players);
       // «онлайн: N» — сколько человек сейчас на сервере (без нас)

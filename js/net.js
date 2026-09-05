@@ -4,10 +4,10 @@
 //   binary 0x03 + u16 count + N*20               — снапшот игроков
 //   JSON leave {type:'leave',id}                 — игрок вышел
 // Исходящие:
-//   0x01 + JSON {name}                           — join
+//   0x01 + JSON {name, skin?}                      — join (skin 0-15, mayfly: живёт пока жив игрок)
 //   0x02 + f32 dx + f32 dz + i16 yaw + u8 flags  — input (dx,dz — МИРОВЫЕ)
 //   BIT0 спринт, BIT1 крауч, BIT2 атака, BIT3 сбор, BIT4 use
-const SNAP_SIZE = 20;
+const SNAP_SIZE = 21;
 
 export function wsUrl() {
   const h = location.hostname;
@@ -18,9 +18,10 @@ export function wsUrl() {
 }
 
 export class NetClient {
-  constructor({ name, room = null, onPlayers, onLeave, onStatus }) {
+  constructor({ name, room = null, skin = 0, onPlayers, onLeave, onStatus }) {
     this.name = name;
     this.room = room;
+    this.skin = skin;
     this.onPlayers = onPlayers || (() => {});
     this.onLeave = onLeave || (() => {});
     this.onStatus = onStatus || (() => {});
@@ -41,7 +42,7 @@ export class NetClient {
 
       ws.onopen = () => {
         this.retries = 0;
-        const payload = { name: this.name };
+        const payload = { name: this.name, skin: this.skin };
         if (this.room) payload.room = this.room;
         ws.send(this._join(payload));
       };
@@ -95,7 +96,8 @@ export class NetClient {
       const yaw = dv.getInt16(off + 16, true) / (32767 / Math.PI);
       const flags = dv.getUint8(off + 18);
       const hp = dv.getUint8(off + 19);
-      players.set(id, { id, x, y, z, yaw, flags, hp });
+      const skin = dv.getUint8(off + 20);
+      players.set(id, { id, x, y, z, yaw, flags, hp, skin });
     }
     this.onPlayers(players);
   }

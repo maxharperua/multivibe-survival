@@ -56,8 +56,8 @@ function waitMessage(ws, pred, timeout = 3000) {
   });
 }
 
-function join(name) {
-  return Buffer.concat([Buffer.from([0x01]), Buffer.from(JSON.stringify({ name }))]);
+function join(name, extra = {}) {
+  return Buffer.concat([Buffer.from([0x01]), Buffer.from(JSON.stringify({ name, ...extra }))]);
 }
 
 function inputVector(dx, dz, yawRad, flags) {
@@ -83,11 +83,11 @@ test('join + welcome', async () => {
   ws.close();
 });
 
-test('snapshot frame: 3 + N*20 bytes, позиция меняется, hp в кадре', async () => {
+test('snapshot frame: 3 + N*21 bytes, позиция меняется, hp и skin в кадре', async () => {
   const a = await connectWelcome();
-  a.send(join('BOT-A'));
+  a.send(join('BOT-A', { skin: 7 }));
   const b = await connectWelcome();
-  b.send(join('BOT-B'));
+  b.send(join('BOT-B', { skin: 3 }));
 
   // оба шлют «бег вперёд со спринтом» каждые 50 мс (как настоящие клиенты)
   const iv = inputVector(0, -1, 0, 1 << 0);
@@ -95,17 +95,21 @@ test('snapshot frame: 3 + N*20 bytes, позиция меняется, hp в к�
   const ivB = setInterval(() => b.send(iv), 50);
   try {
     const frameA = await waitMessage(a, (d) => d[0] === 0x03);
-    // формат: 1 (тип) + 2 (count uint16) + N*20
-    assert.ok(frameA.length >= 3 + 20, `frameA len ${frameA.length}`);
-    assert.equal((frameA.length - 3) % 20, 0, 'кратно 20');
+    // формат: 1 (тип) + 2 (count uint16) + N*21
+    assert.ok(frameA.length >= 3 + 21, `frameA len ${frameA.length}`);
+    assert.equal((frameA.length - 3) % 21, 0, 'кратно 21');
     assert.ok(frameA.readUInt32LE(3) > 0, 'tick ненулевой');
 
     const frameB = await waitMessage(b, (d) => d[0] === 0x03);
-    assert.equal(frameB.length % 20, 3 % 20, 'кратно 20');
+    assert.equal(frameB.length % 21, 3 % 21, 'кратно 21');
 
     // hp в кадре (байт 19 первого игрока) — должен быть 100 и не undefined
     const hp = frameA.readUInt8(3 + 19);
     assert.equal(hp, 100, 'hp=100 на старте');
+
+    // mayfly skin-byte (байт 20): BOT-A прислал skin=7 — сервер сохранил и отдаёт
+    const skinA = frameA.readUInt8(3 + 20);
+    assert.equal(skinA, 7, 'skin=7 (mayfly) в кадре');
 
     await new Promise((r) => setTimeout(r, 400));
     const frameA2 = await waitMessage(a, (d) => d[0] === 0x03 && d.readUInt32LE(3) > 10);
